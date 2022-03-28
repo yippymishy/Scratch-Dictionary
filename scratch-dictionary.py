@@ -1,72 +1,68 @@
 import os
-from scratchclient import ScratchSession
+import scratchconnect
 from pydictionary import Dictionary
 import random
 
-chars = ['',  '',  '',  '',  '',  '',  '',  '',  '',  'a',  'b',  'c',  'd',  'e',  'f',  'g',  'h',  'i',  'j',  'k',  'l',  'm',  'n',  'o',  'p',  'q',  'r',  's',  't',  'u',  'v',  'w',  'x',  'y',  'z',  '0',  '1',  '2',  '3',  '4',  '5',  '6',  '7',  '8',  '9',  '+',  '-',  '.',  ' ',  '_',  '{', '}',  '"',  ':', "'", '<', '>', ';', ',', '&', '°', '(', ')','?','!']
+chars = ['','',  '',  '',  '',  '',  '',  '',  '',  '',  'a',  'b',  'c',  'd',  'e',  'f',  'g',  'h',  'i',  'j',  'k',  'l',  'm',  'n',  'o',  'p',  'q',  'r',  's',  't',  'u',  'v',  'w',  'x',  'y',  'z',  '0',  '1',  '2',  '3',  '4',  '5',  '6',  '7',  '8',  '9',  '+',  '-',  '.',  ' ',  '_',  '{', '}',  '"',  ':', "'", '<', '>', ';', ',', '&', '°', '(', ')','?','!','×']
 
 #encoding (by @wvj)
-def encode (val):
-    val = val.lower()
-    letternum = 1
-    val = str(val)
-    encoded = ""
-    
-    for i in range (1,len(str(val))+1):
-       encoded = str(encoded) + str(chars.index(val[letternum-1])+1)
-       letternum += 1
-
-    return int(encoded + "00")
+def encode (text):
+	i = 0
+	encoded = ''
+	text = text.lower()
+	
+	for loop in range (0,len(text)):
+		encoded = encoded + str(chars.index (text[i]))
+		i+=1
+		
+	return (int(encoded+'00'))
 	
 #decoding (by @wvj)
-def decode (val):
-    letternum = 1
-    value = ""
-    idx = None
- 
-    while True:
-        val = str(val)
-        idx = val[letternum-1] + val[letternum]
-        letternum += 2
-        if int(idx) < 1:
-            break
-        value = value + chars[int(idx) - 1]
-    return value
+def decode (text):
+	i = 0
+	decoded = ''
+	text = str(text)
+
+	for loop in range (int(len(text)/2)):
+		decoded = f'{decoded}{chars [int(text[i]+text[i+1])]}'
+		i += 2
+
+	return (decoded)
 
 #start session
-pwd = os.environ['password']
-session = ScratchSession("yippymishyTest",  pwd)
-connection = session.create_cloud_connection(665490990)
+password = os.environ['pwd']
+user = scratchconnect.ScratchConnect("yippymishyTest", password)
+
+#user = scratchconnect.ScratchConnect("yippymishyTest", pwd)
+project = user.connect_project(project_id=665490990)
+variables = project.connect_cloud_variables()
 
 #start listening
 oldVal = None
 
 while True:
-	cloud = connection.get_cloud_variable("cloud1")
+	cloud = variables.get_cloud_variable_value(variable_name="cloud1")[0]
+	decoded = decode(cloud)
 	if not cloud == oldVal:
-		if '&' in decode (cloud):
-			print ('Message received from user.')
+		if '&' in decoded:
 			dict = Dictionary(decode(cloud)[1:len(decode(cloud))])
 			meanings_list = dict.meanings()
 			#reset the cloud variables
 			for i in range (1,5):
-					connection.set_cloud_variable('cloud'+str(i),encode(' '))
+					set = variables.set_cloud_variable (variable_name="cloud"+str(i), value=encode(''))
 			#if there is a definition
 			if len(meanings_list) > 0:
-				print('Returned definition.')
 				definition = meanings_list[0]
-				print (definition)
 				#splitter from pythonexamples.org
 				n = 125
 				chunks = [definition[i:i+n] for i in range(0, len(definition), n)]
 				x = 1
 				for i in (chunks):
-					connection.set_cloud_variable('cloud'+str(x), encode(i))
+					set = variables.set_cloud_variable (variable_name="cloud"+str(x), value=encode(i))
 					x+=1
 			else:
-				print ('No definition found.')
-				connection.set_cloud_variable('cloud1', encode('No definition found'))
+				set = variables.set_cloud_variable (variable_name="cloud1", value=encode('Failed; you most likely spelled the word wrong.'))
 
 			#tell the Scratch project there is a new message
-			connection.set_cloud_variable('catch',random.randint(0,999))
+			set = variables.set_cloud_variable(variable_name="catch", value=random.randint(0,999))
 oldVal = cloud
